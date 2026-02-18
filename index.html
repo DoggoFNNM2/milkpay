@@ -125,7 +125,7 @@
                 status.innerHTML = '<div class="loader"></div> Processing Payment...';
 
                 try {
-                    const response = await fetch('https://milkpaybackend.onrender.com', {
+                    const response = await fetch('https://milkpaybackend.onrender.com/pay', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ tagUID, amount })
