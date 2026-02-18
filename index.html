@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MilkPay | Payment Confirmed</title>
+    <style>
+        :root {
+            --milky-blue: #afdceb;
+            --soft-white: #f0f8ff;
+            --accent-blue: #5cb6f2;
+            --text-main: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--soft-white) 0%, var(--milky-blue) 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 2.5rem;
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--accent-blue);
+        }
+
+        p {
+            margin-bottom: 2rem;
+            line-height: 1.5;
+            opacity: 0.8;
+        }
+
+        .status-box {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 1rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            font-weight: 600;
+            color: var(--accent-blue);
+            min-height: 1.5rem;
+        }
+
+        button {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(92, 182, 242, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(92, 182, 242, 0.5);
+            background: #46acf1;
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .success { color: #4CAF50 !important; }
+        .error { color: #f44336 !important; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>MilkPay</h1>
+    <p>Your payment was successful! Tap below to wirelessly unlock your bottle.</p>
+    
+    <div id="status" class="status-box">Ready to sync...</div>
+    
+    <button onclick="confirmPayment()">Verify & Unlock</button>
+</div>
+
+<script>
+    const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+    const CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+    const SECRET_SALT = "MILK_PRO_99"; // Must match your ESP32 code
+
+    async function confirmPayment() {
+        const statusDiv = document.getElementById('status');
+        statusDiv.innerText = "Searching for bottle...";
+        statusDiv.className = "status-box";
+
+        try {
+            // 1. Scan for the Bottle
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'MILKPAY_BOTTLE_001' }],
+                optionalServices: [SERVICE_UUID]
+            });
+
+            statusDiv.innerText = "Connecting...";
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            const char = await service.getCharacteristic(CHAR_UUID);
+
+            // 2. Read the security nonce (the random number)
+            statusDiv.innerText = "Verifying Token...";
+            const value = await char.readValue();
+            const nonce = new TextDecoder().decode(value);
+
+            // 3. Create the secure handshake string
+            const token = nonce + SECRET_SALT;
+
+            // 4. Write back to ESP32 to trigger the unlock
+            await char.writeValue(new TextEncoder().encode(token));
+            
+            statusDiv.innerText = "✅ PAID & UNLOCKED!";
+            statusDiv.classList.add("success");
+
+        } catch (error) {
+            console.error(error);
+            statusDiv.innerText = "❌ Connection Failed";
+            statusDiv.classList.add("error");
+        }
+    }
+</script>
+
+</body>
+</html>
